@@ -6,11 +6,13 @@ loadEnv()
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, 'DISCORD_TOKEN is required'),
   DISCORD_CHANNEL_ID: z.string().min(1, 'DISCORD_CHANNEL_ID is required'),
+  DISCORD_ARCHIVE_CHANNEL_ID: z.string().min(1).optional(),
 })
 
 export type AppConfig = {
   discordToken: string
   discordChannelId: string
+  discordArchiveChannelId: string | null
 }
 
 export const loadConfig = (): AppConfig => {
@@ -24,5 +26,6 @@ export const loadConfig = (): AppConfig => {
   return {
     discordToken: parsed.data.DISCORD_TOKEN,
     discordChannelId: parsed.data.DISCORD_CHANNEL_ID,
+    discordArchiveChannelId: parsed.data.DISCORD_ARCHIVE_CHANNEL_ID ?? null,
   }
 }

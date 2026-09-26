@@ -35,9 +35,9 @@ export const fetchAppDetails = async (
       discountPercent: data.price_overview?.discount_percent ?? 0,
       releaseDate: data.release_date?.date || null,
       metacriticScore: data.metacritic?.score ?? null,
-      categories: (data.categories ?? [])
-        .map((category: { description: string }) => category.description)
-        .slice(0, 7),
+      categories: (data.categories ?? []).map(
+        (category: { description: string }) => category.description,
+      ),
       genres: genres.map((genre) => genre.description),
     };
   } catch (error) {

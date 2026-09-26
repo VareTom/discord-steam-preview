@@ -1,6 +1,17 @@
 import { EmbedBuilder } from 'discord.js'
 import type { SteamAppDetails, SteamReviewSummary } from '../steam/types.js'
 
+const RELEVANT_CATEGORIES = new Set([
+  'Solo',
+  'Multijoueur',
+  'Coopération en ligne',
+  'MMO',
+  'Succès Steam',
+  'Classements',
+])
+
+const EARLY_ACCESS_GENRE = 'Accès anticipé'
+
 const buildPriceDisplay = (details: SteamAppDetails): string => {
   if (details.isFree) return 'Gratuit'
   if (!details.finalPriceDisplay) return 'Non disponible'
@@ -22,6 +33,7 @@ export const buildSteamEmbed = (
   appId: string,
   details: SteamAppDetails,
   reviewSummary: SteamReviewSummary,
+  steamTags: string[] = [],
 ): EmbedBuilder => {
   const embed = new EmbedBuilder()
     .setTitle(details.name)
@@ -47,9 +59,16 @@ export const buildSteamEmbed = (
     embed.addFields({ name: 'Sortie', value: details.releaseDate, inline: true })
   }
 
-  const tags = [...details.categories, ...details.genres]
+  const MAX_TAGS_DISPLAYED = 6
+  const relevantCategories = details.categories.filter((category) => RELEVANT_CATEGORIES.has(category))
+  const relevantGenres = details.genres.filter((genre) => genre !== EARLY_ACCESS_GENRE)
+  const tags = [...relevantCategories, ...relevantGenres].slice(0, MAX_TAGS_DISPLAYED)
   if (tags.length > 0) {
     embed.addFields({ name: 'Catégories', value: tags.join(', '), inline: false })
+  }
+
+  if (steamTags.length > 0) {
+    embed.addFields({ name: 'Tags', value: steamTags.join(', '), inline: false })
   }
 
   return embed
