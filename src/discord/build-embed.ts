@@ -3,7 +3,13 @@ import type { SteamAppDetails, SteamReviewSummary } from '../steam/types.js'
 
 const buildPriceDisplay = (details: SteamAppDetails): string => {
   if (details.isFree) return 'Gratuit'
-  return details.finalPriceDisplay ?? 'Non disponible'
+  if (!details.finalPriceDisplay) return 'Non disponible'
+
+  if (details.discountPercent > 0 && details.initialPriceDisplay) {
+    return `~~${details.initialPriceDisplay}~~ ${details.finalPriceDisplay} (-${details.discountPercent}%)`
+  }
+
+  return details.finalPriceDisplay
 }
 
 const buildRatingDisplay = (reviewSummary: SteamReviewSummary): string | null => {
@@ -24,9 +30,21 @@ export const buildSteamEmbed = (
     .setURL(`https://store.steampowered.com/app/${appId}`)
     .addFields({ name: 'Prix', value: buildPriceDisplay(details), inline: true })
 
+  if (details.isEarlyAccess) {
+    embed.addFields({ name: 'Statut', value: '🚧 Accès anticipé', inline: true })
+  }
+
   const ratingDisplay = buildRatingDisplay(reviewSummary)
   if (ratingDisplay) {
     embed.addFields({ name: 'Évaluation', value: ratingDisplay, inline: true })
+  }
+
+  if (details.metacriticScore !== null) {
+    embed.addFields({ name: 'Metacritic', value: `${details.metacriticScore}/100`, inline: true })
+  }
+
+  if (details.releaseDate) {
+    embed.addFields({ name: 'Sortie', value: details.releaseDate, inline: true })
   }
 
   const tags = [...details.categories, ...details.genres]

@@ -13,9 +13,15 @@ const appDetailsResponse = (overrides: Record<string, unknown> = {}) => ({
       short_description: 'A tactical shooter.',
       header_image: 'https://cdn.example.com/730/header.jpg',
       is_free: false,
-      price_overview: { final_formatted: '0,00€' },
+      price_overview: {
+        final_formatted: '0,00€',
+        initial_formatted: '',
+        discount_percent: 0,
+      },
+      release_date: { coming_soon: false, date: '21 août 2012' },
+      metacritic: undefined,
       categories: [{ description: 'Multi-joueur' }],
-      genres: [{ description: 'Action' }],
+      genres: [{ id: '1', description: 'Action' }],
       ...overrides,
     },
   },
@@ -38,10 +44,102 @@ describe('fetchAppDetails', () => {
       shortDescription: 'A tactical shooter.',
       headerImage: 'https://cdn.example.com/730/header.jpg',
       isFree: false,
+      isEarlyAccess: false,
       finalPriceDisplay: '0,00€',
+      initialPriceDisplay: null,
+      discountPercent: 0,
+      releaseDate: '21 août 2012',
+      metacriticScore: null,
       categories: ['Multi-joueur'],
       genres: ['Action'],
     })
+  })
+
+  it('should return discount details when the game is on sale', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          appDetailsResponse({
+            price_overview: {
+              final_formatted: '24,99€',
+              initial_formatted: '49,99€',
+              discount_percent: 50,
+            },
+          }),
+      }),
+    )
+
+    const result = await fetchAppDetails('730')
+
+    expect(result?.discountPercent).toBe(50)
+    expect(result?.initialPriceDisplay).toBe('49,99€')
+    expect(result?.finalPriceDisplay).toBe('24,99€')
+  })
+
+  it('should return a null metacriticScore when metacritic data is absent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => appDetailsResponse(),
+      }),
+    )
+
+    const result = await fetchAppDetails('730')
+
+    expect(result?.metacriticScore).toBeNull()
+  })
+
+  it('should return the metacriticScore when metacritic data is present', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          appDetailsResponse({ metacritic: { score: 93, url: 'https://metacritic.com/x' } }),
+      }),
+    )
+
+    const result = await fetchAppDetails('730')
+
+    expect(result?.metacriticScore).toBe(93)
+  })
+
+  it('should return a null releaseDate when the game is coming soon with no date', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          appDetailsResponse({ release_date: { coming_soon: true, date: '' } }),
+      }),
+    )
+
+    const result = await fetchAppDetails('730')
+
+    expect(result?.releaseDate).toBeNull()
+  })
+
+  it('should return isEarlyAccess true when the genres include the Early Access genre id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          appDetailsResponse({
+            genres: [
+              { id: '1', description: 'Action' },
+              { id: '70', description: 'Accès anticipé' },
+            ],
+          }),
+      }),
+    )
+
+    const result = await fetchAppDetails('730')
+
+    expect(result?.isEarlyAccess).toBe(true)
   })
 
   it('should return null finalPriceDisplay when the game is free and has no price_overview', async () => {
