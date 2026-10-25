@@ -1,0 +1,56 @@
+name: PR vers Discord
+
+# Prévient Discord quand une PR est ouverte, fusionnée ou fermée.
+# Le message contient la taille de la PR (lignes et fichiers), utile
+# pour le futur récap mensuel et annuel.
+on:
+  pull_request:
+    types: [opened, reopened, closed]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Envoyer sur Discord
+        # Tout passe par des variables d'environnement, jamais collé
+        # directement dans la commande (évite l'injection).
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_GITHUB }}
+          REPO: ${{ github.repository }}
+          ACTION: ${{ github.event.action }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          URL: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ADD: ${{ github.event.pull_request.additions }}
+          DEL: ${{ github.event.pull_request.deletions }}
+          FILES: ${{ github.event.pull_request.changed_files }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            LABEL="fusionnée"; COLOR=10181046
+          elif [ "$ACTION" = "closed" ]; then
+            LABEL="fermée sans fusion"; COLOR=9807270
+          else
+            LABEL="ouverte"; COLOR=3447003
+          fi
+          DESC="${BODY:0:700}"
+          [ -z "$DESC" ] && DESC="(pas de description)"
+          jq -n \
+            --arg title "PR #$NUMBER $LABEL : ${TITLE:0:200}" \
+            --arg url "$URL" \
+            --arg desc "$DESC" \
+            --arg stats "+$ADD / -$DEL lignes, $FILES fichiers" \
+            --arg repo "$REPO" \
+            --arg author "$AUTHOR" \
+            --argjson color "$COLOR" \
+            '{allowed_mentions: {parse: []},
+              embeds: [{title: $title, url: $url, description: $desc, color: $color,
+                fields: [
+                  {name: "Dépôt", value: $repo, inline: true},
+                  {name: "Auteur", value: $author, inline: true},
+                  {name: "Taille", value: $stats, inline: true}]}]}' \
+          | curl -sS -f -H "Content-Type: application/json" -d @- "$WEBHOOK"
