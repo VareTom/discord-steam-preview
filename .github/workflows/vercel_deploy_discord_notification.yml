@@ -1,0 +1,38 @@
+name: Vercel vers Discord
+
+# Vercel envoie ces événements à GitHub quand un déploiement change d'état.
+# Ce fichier doit être sur la branche par défaut du dépôt pour se déclencher.
+on:
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
+      - vercel.deployment.error
+      - vercel.deployment.failed
+      - vercel.deployment.canceled
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Envoyer le résultat sur Discord
+        # Les valeurs passent par des variables d'environnement, jamais
+        # collées directement dans la commande (évite l'injection).
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_VERCEL }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event.action }}
+          URL: ${{ github.event.client_payload.url }}
+        run: |
+          case "$EVENT" in
+            vercel.deployment.success) ICON="OK"; COLOR=3066993 ;;
+            *) ICON="ECHEC"; COLOR=15158332 ;;
+          esac
+          STATUS="${EVENT#vercel.deployment.}"
+          jq -n \
+            --arg title "$ICON $REPO : $STATUS" \
+            --arg desc "$URL" \
+            --argjson color "$COLOR" \
+            '{embeds: [{title: $title, description: $desc, color: $color}]}' \
+          | curl -sS -f -H "Content-Type: application/json" -d @- "$WEBHOOK"
